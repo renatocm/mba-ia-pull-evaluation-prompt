@@ -1,3 +1,75 @@
+# Entrega — otimização de prompts com LangSmith
+
+**Resultado final: aprovado.** Duas execuções oficiais consecutivas do prompt v2 publicado no commit `43929207` atingiram todas as cinco médias ≥ 0,80. A última execução teve média **0,8679** em 15 exemplos.
+
+| Métrica | Última execução |
+|---|---:|
+| helpfulness | 0.8873 |
+| correctness | 0.8497 |
+| f1_score | 0.8281 |
+| clarity | 0.9033 |
+| precision | 0.8713 |
+
+## Como executar
+
+Use Python 3.9+ e um ambiente virtual. Instale as dependências e configure o `.env` a partir de `.env.example`, com suas próprias credenciais. Nunca versionar o `.env`.
+
+```bash
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
+cp .env.example .env
+# Edite .env antes de continuar.
+venv/bin/python src/pull_prompts.py
+venv/bin/python -m pytest tests/test_prompts.py -v
+venv/bin/python src/push_prompts.py
+env -u OPENAI_API_KEY venv/bin/python src/evaluate.py
+```
+
+O comando de push publica o prompt como público no username configurado. O pull obtém a v1; o push publica a v2 local; a avaliação usa a v2 do Hub. As chamadas de geração e julgamento utilizam a API do provedor configurado.
+
+## Evidências da entrega
+
+- [Prompt público no LangSmith](https://smith.langchain.com/hub/teste-renato/bug_to_user_story_v2).
+- [Última avaliação completa](evaluation_v2_final.json): respostas, notas exatas, justificativas e links dos 15 traces, recuperados sem repetir chamadas aos modelos.
+- [Primeira aprovação oficial](evaluation_v2_iteration_03.json) e [rodada diagnóstica anterior](evaluation_v2_iteration_02.json).
+- [Dataset no LangSmith](https://smith.langchain.com/o/9d591d7d-d4d9-4766-93ff-46d6c515317c/datasets/7254a96b-bb94-4260-943f-20bd50c628c2). O acesso ao workspace e aos traces exige autenticação; as capturas abaixo ficam disponíveis no repositório.
+
+![Resumo das notas recuperadas dos traces](evidence/resumo.png)
+
+O resumo acima foi preparado a partir das notas dos traces, não capturado de um dashboard de experimentos. O avaliador fornecido calcula as médias no terminal e registra chamadas via tracing; ele não cria um experimento nem associa essas notas como feedback de runs. Os arquivos protegidos foram preservados.
+
+![Dataset com 15 exemplos](evidence/dataset.png)
+
+### Três exemplos de tracing
+
+[Trace do caso 1](https://smith.langchain.com/o/9d591d7d-d4d9-4766-93ff-46d6c515317c/projects/p/5549864a-e06b-44a9-9f24-c69f6d8d21ef/r/4c2f0e98-1527-440c-b810-51a565a74345?poll=true)
+
+![Trace 1](evidence/trace-01.png)
+
+[Trace do caso 7](https://smith.langchain.com/o/9d591d7d-d4d9-4766-93ff-46d6c515317c/projects/p/5549864a-e06b-44a9-9f24-c69f6d8d21ef/r/924df358-a6d7-40c8-9c06-9f9524f9aa92?poll=true)
+
+![Trace 7](evidence/trace-07.png)
+
+[Trace do caso 12](https://smith.langchain.com/o/9d591d7d-d4d9-4766-93ff-46d6c515317c/projects/p/5549864a-e06b-44a9-9f24-c69f6d8d21ef/r/5152c1d5-9b3e-4863-9209-77db5bf1cc60?poll=true)
+
+![Trace 12](evidence/trace-12.png)
+
+## Comparação entre versões e limites
+
+| Aspecto | v1 | v2 final |
+|---|---|---|
+| Persona | Assistente genérico | Product Manager |
+| Exemplos | Sem few-shot | Três exemplos autorais |
+| Entrada | Relato repetido em system/human | Relato somente em human |
+| Critérios | Instruções vagas | Critérios verificáveis e revisão de cobertura |
+| Métricas | Não avaliada nesta entrega | Cinco médias ≥ 0,80 |
+
+Não há medição de baseline v1 nesta entrega; as tabelas históricas abaixo comparam revisões da v2. Não foram inventadas notas para a v1. A avaliação é feita por LLM e varia entre execuções; aprovação das médias não implica aprovação de cada caso individual. Os 10 testes estruturais passaram. `utils.py`, `evaluate.py`, `metrics.py` e os datasets não foram alterados.
+
+---
+
+## Enunciado e histórico do desenvolvimento
+
 # Pull, Otimização e Avaliação de Prompts com LangChain e LangSmith
 
 ## Objetivo
@@ -304,3 +376,96 @@ C) Seção "Como Executar":
 - Não altere os datasets de avaliação - apenas os prompts em prompts/bug_to_user_story_v2.yml
 - Itere, itere, itere - é normal precisar de 3-5 iterações para atingir 0.8 em todas as métricas
 - Documente seu processo - a jornada de otimização é tão importante quanto o resultado final
+
+## Técnicas Aplicadas (Fase 2)
+
+O prompt `prompts/bug_to_user_story_v2.yml` combina duas técnicas:
+
+- **Few-shot Learning:** três exemplos autorais mostram um cálculo de reserva de estúdio, uma ação de salvar aula e uma integração de devolução com mensagens repetidas. Os pares Entrada/Saída demonstram formato, critérios testáveis e tratamento de lacunas; não reproduzem as respostas do dataset de avaliação.
+- **Role Prompting:** a persona de Product Manager com experiência em requisitos e qualidade orienta a escrita para a necessidade do usuário, o benefício e a validação da correção.
+
+A v2 separa as instruções e exemplos no system prompt do relato variável no user prompt. O placeholder `{bug_report}` aparece uma única vez. A saída usa Markdown, a estrutura Como / eu quero / para que e critérios Dado / quando / então. Contexto técnico, impacto, tarefas propostas e perguntas aparecem apenas quando pertinentes.
+
+As regras exigem preservar os fatos do relato, evitar causas e números inventados, distinguir requisitos propostos de fatos observados e tratar entradas vazias, contradições e defeitos independentes. Os exemplos ilustram o comportamento desejado; seu cumprimento pelo modelo depende da avaliação real.
+
+### Validação local da v2
+
+Na raiz do repositório, execute:
+
+```bash
+venv/bin/python -m pytest tests/test_prompts.py -v
+```
+
+Os testes verificam os seis requisitos estruturais do desafio e a montagem das mensagens no LangChain, inclusive entradas vazias e texto com chaves. Não chamam APIs nem medem qualidade das respostas. O push da v2 está implementado e a publicação pública foi verificada. Os resultados das iterações e suas limitações estão registrados abaixo.
+
+
+## Publicação e primeira tentativa de avaliação da v2
+
+O script `src/push_prompts.py` valida o YAML, monta as mensagens system/human e publica a v2 como prompt público com descrição, tags e técnicas nos metadados. Retorna código de erro se a validação ou publicação falhar.
+
+Publicação verificada: [teste-renato/bug_to_user_story_v2](https://smith.langchain.com/hub/teste-renato/bug_to_user_story_v2), commit `089805b3`. O conteúdo baixado do Hub foi comparado com o YAML local e a visibilidade pública foi confirmada pela API.
+
+A primeira execução criou o dataset `default-eval` com 15 exemplos. As chamadas ao modelo `gpt-4o-mini` falharam com HTTP 401 (`invalid_api_key`). O avaliador configurado é `gpt-4o`, mas a avaliação das respostas não chegou a ocorrer. Os valores zero apresentados pelo script são consequência da falha de autenticação e não representam a qualidade do prompt. Não há aprovação ou métricas válidas nesta tentativa.
+
+Após corrigir `OPENAI_API_KEY` no `.env`, execute na raiz do repositório:
+
+```bash
+venv/bin/python src/evaluate.py
+```
+
+Para futuras alterações no YAML, publique novamente antes de avaliar:
+
+```bash
+venv/bin/python src/push_prompts.py
+venv/bin/python src/evaluate.py
+```
+
+
+## Resultados da segunda iteração da v2
+
+A primeira avaliação válida, após corrigir a autenticação, apresentou média geral 0,7861 e F1 aproximadamente 0,69. A análise dos traces encontrou critérios que preservavam o comportamento defeituoso, verificações vagas e cenários extras que omitiam resultados centrais.
+
+A revisão distingue comportamento atual e esperado, verifica cálculos, favorece um cenário principal com resultados associados e exige efeitos observáveis no fluxo completo. Mantém Few-shot Learning e Role Prompting com exemplos autorais, sem copiar respostas de referência. Não altera datasets, utils.py, evaluate.py ou metrics.py.
+
+| Métrica | Primeira rodada (terminal, arredondada) | Segunda rodada diagnóstica |
+|---|---:|---:|
+| helpfulness | 0,83 | 0.8703 |
+| correctness | 0,75 | 0.8206 |
+| f1_score | 0,69 | 0.8005 |
+| clarity | 0,86 | 0.9000 |
+| precision | ≈0,80 (abaixo do limiar) | 0.8407 |
+
+Média geral da segunda rodada: **0.8464**. Todas as cinco médias atingiram 0,8 nessa rodada; isso não significa que todos os exemplos individuais passaram. O F1 (0.800527) está próximo do limiar e pode variar entre execuções.
+
+### Método e evidências
+
+Foram avaliados os mesmos 15 exemplos de `default-eval` com `gpt-4o-mini`, temperatura zero, e `gpt-4o` como avaliador, reutilizando as funções originais `evaluate_prompt_on_example` e as três métricas de `metrics.py`. Helpfulness e Correctness foram calculadas pelas mesmas fórmulas de `evaluate.py`. O YAML candidato foi avaliado antes de sua publicação, sem modificar os arquivos protegidos.
+
+A execução diagnóstica processou três exemplos em paralelo. Duas chamadas ao avaliador falharam por limite temporário (429); somente essas chamadas foram repetidas, preservando as respostas já geradas e todas as avaliações válidas. Portanto, os números acima são da rodada diagnóstica, não de uma nova execução completa do comando `src/evaluate.py` após o push.
+
+As respostas, referências, justificativas, IDs dos exemplos e médias estão em [evaluation_v2_iteration_02.json](evaluation_v2_iteration_02.json). Os 10 testes estruturais passaram.
+
+Limitações: algumas referências exigem detalhes não presentes nos relatos; certos julgamentos penalizam o formato User Story apesar de ele ser obrigatório no desafio. Essas discrepâncias foram preservadas, sem alterar os avaliadores ou inserir respostas do dataset nos exemplos do prompt. As métricas do juiz são sujeitas a variação. Uma nova execução do CLI pode produzir notas diferentes.
+
+Revisão publicada e conferida no Hub: commit `1bc04377` de `teste-renato/bug_to_user_story_v2`, com acesso público. O conteúdo das mensagens coincide com o YAML avaliado.
+
+
+## Resultados Finais — terceira iteração da v2
+
+A revisão publicada no commit `43929207` foi **aprovada pela execução oficial de `src/evaluate.py`**, com 15 exemplos e sem erros de API ou repetição de julgamentos. Foram mantidos `gpt-4o-mini` para geração e `gpt-4o` para avaliação.
+
+Após a segunda iteração diagnóstica, uma execução oficial enviada pelo usuário apresentou F1 0,79 e média 0,8616, ainda reprovada. A terceira iteração acrescentou verificações de cobertura para agregações (filtro, status e atualização), acessibilidade de diálogos e integridade de recursos concorrentes. Essas instruções descrevem requisitos propostos pertinentes, sem copiar respostas de referência ou inventar limites numéricos.
+
+| Métrica | Terceira iteração oficial |
+|---|---:|
+| helpfulness | 0.8890 |
+| correctness | 0.8463 |
+| f1_score | 0.8147 |
+| clarity | 0.9000 |
+| precision | 0.8780 |
+
+**Média geral: 0,8656. Todas as cinco médias ≥ 0,80.** O caso 4 passou de aproximadamente 0,69 para 0,75 em F1; o caso 12 passou de aproximadamente 0,69 para 0,80. A aprovação refere-se às médias do dataset, não à aprovação individual de cada exemplo. Como o juiz é um LLM, novas execuções podem variar.
+
+Evidências: [registro completo da terceira iteração](evaluation_v2_iteration_03.json), incluindo saída do terminal, respostas, notas, justificativas e IDs dos traces. Prompt público: [teste-renato/bug_to_user_story_v2](https://smith.langchain.com/hub/teste-renato/bug_to_user_story_v2), commit `43929207`. O conteúdo publicado foi conferido com o YAML local e os 10 testes estruturais passaram.
+
+O dataset e os arquivos `src/utils.py`, `src/evaluate.py` e `src/metrics.py` permaneceram intactos. A execução foi sequencial pelo CLI original. Os detalhes foram recuperados do tracing sem alterar a pontuação. As capturas e a última execução de confirmação estão documentadas na seção de entrega no início deste README.
