@@ -62,9 +62,28 @@ O resumo acima foi preparado a partir das notas dos traces, não capturado de um
 | Exemplos | Sem few-shot | Três exemplos autorais |
 | Entrada | Relato repetido em system/human | Relato somente em human |
 | Critérios | Instruções vagas | Critérios verificáveis e revisão de cobertura |
-| Métricas | Não avaliada nesta entrega | Cinco médias ≥ 0,80 |
+| Métricas | Média 0.8399; reprovada | Cinco médias ≥ 0,80 |
 
-Não há medição de baseline v1 nesta entrega; as tabelas históricas abaixo comparam revisões da v2. Não foram inventadas notas para a v1. A avaliação é feita por LLM e varia entre execuções; aprovação das médias não implica aprovação de cada caso individual. Os 10 testes estruturais passaram. `utils.py`, `evaluate.py`, `metrics.py` e os datasets não foram alterados.
+### Comparação quantitativa v1 × v2
+
+A v1 original (`leonanluppi/bug_to_user_story_v1`) foi avaliada nos mesmos 15 relatos, na mesma ordem, com `gpt-4o-mini`, temperatura zero, e `gpt-4o` como juiz. Foram reutilizadas as funções originais de geração e de pontuação, sem alterar `evaluate.py`, `metrics.py`, `utils.py` ou datasets. O conteúdo do Hub foi conferido com o YAML v1 local. A v2 corresponde à última execução oficial já registrada, commit `43929207`; não foi executada novamente para escolher um resultado melhor.
+
+| Métrica | v1 original | v2 final | Variação (v2 − v1) |
+|---|---:|---:|---:|
+| helpfulness | 0.8750 | 0.8873 | +0.0123 |
+| correctness | 0.8159 | 0.8497 | +0.0338 |
+| f1_score | 0.7584 | 0.8281 | +0.0697 |
+| clarity | 0.8767 | 0.9033 | +0.0266 |
+| precision | 0.8733 | 0.8713 | -0.0020 |
+| **Média geral** | **0.8399** | **0.8679** | **+0.0280** |
+
+Status v1: **reprovado**. Status v2: **aprovado**. O critério exige todas as cinco médias ≥ 0,80.
+
+[Evidência completa da v1](evaluation_v1_baseline.json) · [Evidência completa da v2](evaluation_v2_final.json).
+
+A comparação é descritiva de uma rodada por versão, executadas em momentos diferentes. Mesmo com temperatura zero, os modelos e os julgamentos podem variar; as diferenças não constituem uma estimativa de significância estatística. Cada arquivo contém as respostas e justificativas dos 15 exemplos, incluindo notas abaixo do limiar. As tabelas históricas abaixo documentam as revisões da v2.
+
+A avaliação é feita por LLM e varia entre execuções; aprovação das médias não implica aprovação de cada caso individual. Os 10 testes estruturais passaram. `utils.py`, `evaluate.py`, `metrics.py` e os datasets não foram alterados.
 
 ---
 
